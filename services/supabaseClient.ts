@@ -8,32 +8,42 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
 // Supabase configuration from environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// IMPORTANTE: Na Vercel, certifique-se de adicionar estas variáveis nas configurações do projeto!
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('⚠️ Supabase URL or Anon Key not found in environment variables');
-    console.error('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
+// Verificação de segurança para evitar crash
+const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+
+if (!isSupabaseConfigured) {
+    console.error('⚠️ Supabase URL or Anon Key NOT FOUND. Please configure VITE_SUPABASE_URL in your environment variables.');
 }
 
-// Create Supabase client with type safety
-export const supabase: SupabaseClient<Database> = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage,
-        storageKey: 'carnepibra-auth-token',
-    },
-    db: {
-        schema: 'public'
-    },
-    global: {
-        headers: {
-            'x-application-name': 'CarnePIBRA'
+// Create Supabase client safely
+// Se não houver configuração, cria um cliente "dummy" que não vai quebrar o import, 
+// mas métodos falharão graciosamente ou app deve checar isSupabaseConfigured
+export const supabase: SupabaseClient<Database> = isSupabaseConfigured
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storage: window.localStorage,
+            storageKey: 'carnepibra-auth-token',
+        },
+        db: {
+            schema: 'public'
+        },
+        global: {
+            headers: {
+                'x-application-name': 'CarnePIBRA'
+            }
         }
-    }
-});
+    })
+    : {} as any; // Fallback temporário para evitar White Screen of Death na inicialização
+
+// Exportar a verificação para uso em outros lugares
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 // Auth helpers
 export const auth = {
@@ -41,6 +51,7 @@ export const auth = {
      * Sign up a new user
      */
     async signUp(email: string, password: string, metadata?: { username?: string; full_name?: string }) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado. Verifique as variáveis de ambiente.");
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -58,6 +69,7 @@ export const auth = {
      * Sign in with email and password
      */
     async signIn(email: string, password: string) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -71,6 +83,7 @@ export const auth = {
      * Sign out current user
      */
     async signOut() {
+        if (!isSupabaseConfigured) return;
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     },
@@ -79,6 +92,7 @@ export const auth = {
      * Get current user session
      */
     async getSession() {
+        if (!isSupabaseConfigured) return null;
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         return data.session;
@@ -88,6 +102,7 @@ export const auth = {
      * Get current user
      */
     async getUser() {
+        if (!isSupabaseConfigured) return null;
         const { data, error } = await supabase.auth.getUser();
         if (error) throw error;
         return data.user;
@@ -97,6 +112,7 @@ export const auth = {
      * Reset password
      */
     async resetPassword(email: string) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${window.location.origin}/auth/reset-password`
         });
@@ -108,6 +124,7 @@ export const auth = {
      * Update password
      */
     async updatePassword(newPassword: string) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
         const { error } = await supabase.auth.updateUser({
             password: newPassword
         });
@@ -122,6 +139,7 @@ export const db = {
      * Get user profile
      */
     async getProfile(userId: string) {
+        if (!isSupabaseConfigured) return null;
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -136,6 +154,7 @@ export const db = {
      * Update user profile
      */
     async updateProfile(userId: string, updates: Partial<Database['public']['Tables']['profiles']['Update']>) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
         const { data, error } = await supabase
             .from('profiles')
             .update(updates)
@@ -151,6 +170,7 @@ export const db = {
      * Get all customers for a user
      */
     async getCustomers(userId: string) {
+        if (!isSupabaseConfigured) return [];
         const { data, error } = await supabase
             .from('customers')
             .select('*')
@@ -165,6 +185,7 @@ export const db = {
      * Create a new customer
      */
     async createCustomer(customer: Database['public']['Tables']['customers']['Insert']) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
         const { data, error } = await supabase
             .from('customers')
             .insert(customer)
@@ -179,6 +200,7 @@ export const db = {
      * Get all carnes for a user
      */
     async getCarnes(userId: string) {
+        if (!isSupabaseConfigured) return [];
         const { data, error } = await supabase
             .from('carnes')
             .select(`
