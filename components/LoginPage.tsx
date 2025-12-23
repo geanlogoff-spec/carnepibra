@@ -1,59 +1,64 @@
-
 import React, { useState } from 'react';
 import { RateLimiter, sanitizeHTML } from '../utils/security';
+import { auth } from '../services/supabaseClient';
 
 interface LoginPageProps {
   onLogin: () => void;
 }
 
 // Rate limiter para prevenir brute force
-const loginLimiter = new RateLimiter(5, 60000); // 5 tentativas por minuto
+const loginLimiter = new RateLimiter(10, 60000); // Aumentado para 10 tentativas em dev/teste
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [attempts, setAttempts] = useState(0);
+  const [isSignUp, setIsSignUp] = useState(false); // Alternar entre login e cadastro
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Validação básica
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Por favor, preencha todos os campos.');
       return;
     }
 
     // Rate limiting
     if (!loginLimiter.check('login')) {
-      setError('Muitas tentativas de login. Aguarde 1 minuto.');
+      setError('Muitas tentativas. Aguarde 1 minuto.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulando autenticação com delay
-    setTimeout(() => {
-      // Em produção, validar contra backend ou hash armazenado
-      // NOTA: Esta é uma validação de demonstração - use autenticação real em produção!
-      const validUsername = 'admin';
-      const validPassword = 'admin123'; // Em produção, use hash e backend
-
-      if (username === validUsername && password === validPassword) {
+    try {
+      if (isSignUp) {
+        // Cadastro
+        await auth.signUp(email, password);
+        alert('Cadastro realizado! Por favor, faça login.');
+        setIsSignUp(false); // Voltar para login
+      } else {
+        // Login
+        await auth.signIn(email, password);
         loginLimiter.reset('login');
         onLogin();
-      } else {
-        setAttempts(prev => prev + 1);
-        setError(`Credenciais inválidas. Tentativa ${attempts + 1}/5.`);
-        setIsSubmitting(false);
-
-        if (attempts >= 4) {
-          setError('Conta temporariamente bloqueada. Aguarde 1 minuto.');
-        }
       }
-    }, 1500);
+    } catch (err: any) {
+      console.error('Erro de autenticação:', err);
+      // Mensagens de erro amigáveis para o usuário
+      if (err.message.includes('Invalid login credentials')) {
+        setError('E-mail ou senha incorretos.');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Por favor, confirme seu e-mail antes de entrar.');
+      } else {
+        setError(err.message || 'Ocorreu um erro ao tentar entrar.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -88,7 +93,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="relative space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Usuário / E-mail</label>
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">E-mail</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -97,11 +102,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </div>
                 <input
                   required
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-black/40 border border-white/5 rounded-[22px] py-4 pl-14 pr-6 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all font-medium"
-                  placeholder="Seu nome de usuário"
+                  placeholder="seu@email.com"
                 />
               </div>
             </div>
@@ -109,7 +114,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Sua Senha</label>
-                <button type="button" className="text-[9px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-wider transition-colors">Esqueci a senha</button>
+                {!isSignUp && (
+                  <button type="button" className="text-[9px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-wider transition-colors">Esqueci a senha</button>
+                )}
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-500">
@@ -152,7 +159,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span className="text-sm uppercase tracking-[0.15em]">Entrar no Painel</span>
+                  <span className="text-sm uppercase tracking-[0.15em]">{isSignUp ? 'Criar Conta' : 'Entrar no Painel'}</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -165,7 +172,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         {/* Rodapé do Login */}
         <div className="mt-10 text-center space-y-4">
           <p className="text-slate-500 text-[11px] font-medium tracking-tight">
-            Não tem uma conta? <button className="text-indigo-400 font-bold hover:underline">Solicite seu acesso</button>
+            {isSignUp ? (
+              <>Já tem uma conta? <button type="button" onClick={() => setIsSignUp(false)} className="text-indigo-400 font-bold hover:underline">Fazer Login</button></>
+            ) : (
+              <>Não tem uma conta? <button type="button" onClick={() => setIsSignUp(true)} className="text-indigo-400 font-bold hover:underline">Solicite seu acesso</button></>
+            )}
           </p>
           <div className="flex items-center justify-center gap-4 text-[9px] font-black text-slate-600 uppercase tracking-widest">
             <span>Privacidade</span>

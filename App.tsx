@@ -12,7 +12,7 @@ import { generatePixPayload } from './services/geminiService';
 import { SecureStorage, validateAmount, validateDocument, sanitizeHTML } from './utils/security';
 
 // Instância de armazenamento seguro
-const secureStorage = new SecureStorage();
+import { auth, db } from './services/supabaseClient';
 
 const DEFAULT_SETTINGS: MerchantSettings = {
   name: "MINHA EMPRESA LTDA",
@@ -21,45 +21,77 @@ const DEFAULT_SETTINGS: MerchantSettings = {
 };
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return secureStorage.getItem('carnepix_auth') === 'true';
-  });
-
-  const [carnes, setCarnes] = useState<Carne[]>(() => {
-    const saved = secureStorage.getItem('carnepix_data');
-    return saved || [];
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [carnes, setCarnes] = useState<Carne[]>([]);
   const [activeCarne, setActiveCarne] = useState<Carne | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'management' | 'reports' | 'settings'>('dashboard');
+  const [merchantSettings, setMerchantSettings] = useState<MerchantSettings>(DEFAULT_SETTINGS);
 
-  const [merchantSettings, setMerchantSettings] = useState<MerchantSettings>(() => {
-    const saved = secureStorage.getItem('carnepix_settings');
-    return saved || DEFAULT_SETTINGS;
-  });
-
+  // Inicialização e verificação de sessão
   useEffect(() => {
-    secureStorage.setItem('carnepix_data', carnes);
-  }, [carnes]);
+    const initSession = async () => {
+      try {
+        const session = await auth.getSession();
+        if (session) {
+          setIsAuthenticated(true);
+          setUserId(session.user.id);
+          await loadUserData(session.user.id);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar sessão', error);
+      }
+    };
+    initSession();
+  }, []);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-    secureStorage.setItem('carnepix_auth', 'true');
+  // Carregar dados usuário
+  const loadUserData = async (uid: string) => {
+    try {
+      setIsLoading(true);
+      const [fetchedCarnes, fetchedSettings] = await Promise.all([
+        db.getCarnes(uid),
+        db.getSettings(uid)
+      ]);
+
+      if (fetchedCarnes) setCarnes(fetchedCarnes as unknown as Carne[]); // Type assertion provisório
+
+      if (fetchedSettings && Object.keys(fetchedSettings as object).length > 0) {
+        setMerchantSettings(fetchedSettings as MerchantSettings);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogin = async () => {
+    const user = await auth.getUser();
+    if (user) {
+      setIsAuthenticated(true);
+      setUserId(user.id);
+      loadUserData(user.id);
+    }
+  };
+
+  const handleLogout = async () => {
     if (confirm("Deseja realmente encerrar sua sessão?")) {
+      await auth.signOut();
       setIsAuthenticated(false);
-      secureStorage.removeItem('carnepix_auth');
-      // Opcional: Limpa o estado ativo ao sair
+      setUserId(null);
+      setCarnes([]);
       setActiveCarne(null);
       setActiveTab('dashboard');
     }
   };
 
-  const saveSettings = (newSettings: MerchantSettings) => {
+  const saveSettings = async (newSettings: MerchantSettings) => {
     setMerchantSettings(newSettings);
-    secureStorage.setItem('carnepix_settings', newSettings);
+    if (userId) {
+      await db.updateSettings(userId, newSettings);
+    }
   };
 
   const handleCreateCarne = async (data: CarneFormData) => {
@@ -121,21 +153,81 @@ const App: React.FC = () => {
         });
       }
 
-      const newCarne: Carne = {
-        id: Math.random().toString(36).substring(7),
-        customer: {
-          name: sanitizeHTML(data.customerName.trim()),
-          document: data.customerDocument,
-        },
+
+      // Adaptar para formato do banco de dados
+      const carneForDb = {
+        user_id: userId!,
+        customer_id: '', // Será preenchido após criar/buscar cliente
         title: sanitizeHTML(data.title.trim()),
-        totalAmount: data.totalAmount,
-        installments,
-        createdAt: new Date().toISOString(),
+        description: '',
+        total_amount: data.totalAmount,
+        installments_count: data.installmentsCount,
+        status: 'active' as const
       };
 
-      setCarnes([newCarne, ...carnes]);
-      setActiveCarne(newCarne);
-      setIsLoading(false);
+      try {
+        // 1. Criar ou buscar cliente
+        // Simplificação: criando novo cliente para cada carne por enquanto
+        // Idealmente, buscaria cliente existente pelo documento
+        const customerData = {
+          user_id: userId!,
+          name: sanitizeHTML(data.customerName.trim()),
+          document: data.customerDocument,
+          email: '',
+          phone: '',
+          address: ''
+        };
+
+        const newCustomer = await db.createCustomer(customerData) as any;
+        if (!newCustomer) throw new Error("Falha ao criar cliente");
+        carneForDb.customer_id = newCustomer.id;
+
+        // 2. Preparar parcelas para DB
+        const installmentsForDb = installments.map(inst => ({
+          carne_id: '', // Será preenchido pelo createCarne
+          number: inst.number,
+          due_date: new Date(inst.dueDate).toISOString().split('T')[0], // Apenas data YYYY-MM-DD
+          amount: inst.amount,
+          status: 'pending' as const,
+          pix_payload: inst.pixPayload,
+          pix_txid: `CARNE${inst.number}ID${inst.id}`, // TXID simulado
+          payment_method: 'PIX',
+          notes: ''
+        }));
+
+        // 3. Salvar tudo no Supabase
+        const result = await db.createCarne(carneForDb, installmentsForDb) as any;
+        if (!result || !result.carne) throw new Error("Falha ao criar carnê");
+
+        // 4. Converter de volta para o formato usado na UI (Carne type)
+        const newCarne: Carne = {
+          id: result.carne.id,
+          customer: {
+            name: newCustomer.name,
+            document: newCustomer.document || undefined,
+          },
+          title: result.carne.title,
+          totalAmount: result.carne.total_amount,
+          installments: (result.installments || []).map((inst: any) => ({
+            id: inst.id,
+            number: inst.number,
+            dueDate: inst.due_date, // Pode precisar ajustar fuso dependendo da implementação
+            amount: inst.amount,
+            status: inst.status,
+            pixPayload: inst.pix_payload,
+            paymentDate: inst.payment_date
+          })),
+          createdAt: result.carne.created_at,
+        };
+
+        setCarnes([newCarne, ...carnes]);
+        setActiveCarne(newCarne);
+      } catch (error) {
+        console.error("Erro ao salvar no banco de dados:", error);
+        alert("Erro ao salvar o carnê. Verifique sua conexão e tente novamente.");
+      } finally {
+        setIsLoading(false);
+      }
     }, 1200);
   };
 
