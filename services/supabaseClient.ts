@@ -12,8 +12,8 @@ import type { Database } from '../types/supabase';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Verificação de segurança para evitar crash
-const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+// Exportar a verificação para uso em outros lugares
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
     console.error('⚠️ Supabase URL or Anon Key NOT FOUND. Please configure VITE_SUPABASE_URL in your environment variables.');
@@ -41,9 +41,6 @@ export const supabase: SupabaseClient<Database> = isSupabaseConfigured
         }
     })
     : {} as any; // Fallback temporário para evitar White Screen of Death na inicialização
-
-// Exportar a verificação para uso em outros lugares
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 // Auth helpers
 export const auth = {
