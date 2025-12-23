@@ -1,0 +1,364 @@
+/**
+ * Supabase Client Configuration
+ * 
+ * This file sets up the Supabase client for authentication and database operations
+ */
+
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase';
+
+// Supabase configuration from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('⚠️ Supabase URL or Anon Key not found in environment variables');
+    console.error('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
+}
+
+// Create Supabase client with type safety
+export const supabase: SupabaseClient<Database> = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: window.localStorage,
+        storageKey: 'carnepibra-auth-token',
+    },
+    db: {
+        schema: 'public'
+    },
+    global: {
+        headers: {
+            'x-application-name': 'CarnePIBRA'
+        }
+    }
+});
+
+// Auth helpers
+export const auth = {
+    /**
+     * Sign up a new user
+     */
+    async signUp(email: string, password: string, metadata?: { username?: string; full_name?: string }) {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: metadata,
+                emailRedirectTo: `${window.location.origin}/auth/callback`
+            }
+        });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Sign in with email and password
+     */
+    async signIn(email: string, password: string) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Sign out current user
+     */
+    async signOut() {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+    },
+
+    /**
+     * Get current user session
+     */
+    async getSession() {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        return data.session;
+    },
+
+    /**
+     * Get current user
+     */
+    async getUser() {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        return data.user;
+    },
+
+    /**
+     * Reset password
+     */
+    async resetPassword(email: string) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/reset-password`
+        });
+
+        if (error) throw error;
+    },
+
+    /**
+     * Update password
+     */
+    async updatePassword(newPassword: string) {
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) throw error;
+    }
+};
+
+// Database helpers
+export const db = {
+    /**
+     * Get user profile
+     */
+    async getProfile(userId: string) {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Update user profile
+     */
+    async updateProfile(userId: string, updates: Partial<Database['public']['Tables']['profiles']['Update']>) {
+        const { data, error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Get all customers for a user
+     */
+    async getCustomers(userId: string) {
+        const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('user_id', userId)
+            .order('name');
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Create a new customer
+     */
+    async createCustomer(customer: Database['public']['Tables']['customers']['Insert']) {
+        const { data, error } = await supabase
+            .from('customers')
+            .insert(customer)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Get all carnes for a user
+     */
+    async getCarnes(userId: string) {
+        const { data, error } = await supabase
+            .from('carnes')
+            .select(`
+        *,
+        customer:customers(*),
+        installments(*)
+      `)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Get a specific carne with all details
+     */
+    async getCarne(carneId: string) {
+        const { data, error } = await supabase
+            .from('carnes')
+            .select(`
+        *,
+        customer:customers(*),
+        installments(*)
+      `)
+            .eq('id', carneId)
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Create a new carne with installments
+     */
+    async createCarne(
+        carne: Database['public']['Tables']['carnes']['Insert'],
+        installments: Database['public']['Tables']['installments']['Insert'][]
+    ) {
+        // Insert carne
+        const { data: carneData, error: carneError } = await supabase
+            .from('carnes')
+            .insert(carne)
+            .select()
+            .single();
+
+        if (carneError) throw carneError;
+
+        // Insert installments
+        const installmentsWithCarneId = installments.map(inst => ({
+            ...inst,
+            carne_id: carneData.id
+        }));
+
+        const { data: installmentsData, error: installmentsError } = await supabase
+            .from('installments')
+            .insert(installmentsWithCarneId)
+            .select();
+
+        if (installmentsError) throw installmentsError;
+
+        return { carne: carneData, installments: installmentsData };
+    },
+
+    /**
+     * Update installment status
+     */
+    async updateInstallmentStatus(
+        installmentId: string,
+        status: 'pending' | 'paid' | 'overdue' | 'cancelled',
+        paymentDate?: string
+    ) {
+        const { data, error } = await supabase
+            .from('installments')
+            .update({
+                status,
+                payment_date: paymentDate || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', installmentId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Delete a carne (cascades to installments)
+     */
+    async deleteCarne(carneId: string) {
+        const { error } = await supabase
+            .from('carnes')
+            .delete()
+            .eq('id', carneId);
+
+        if (error) throw error;
+    },
+
+    /**
+     * Get dashboard statistics
+     */
+    async getDashboardStats(userId: string) {
+        const { data, error } = await supabase
+            .rpc('get_user_dashboard_stats', { user_uuid: userId });
+
+        if (error) throw error;
+        return data[0];
+    },
+
+    /**
+     * Get user settings
+     */
+    async getSettings(userId: string) {
+        const { data, error } = await supabase
+            .from('user_settings')
+            .select('settings')
+            .eq('user_id', userId)
+            .single();
+
+        if (error) {
+            // If settings don't exist, create them
+            if (error.code === 'PGRST116') {
+                return await this.createSettings(userId, {});
+            }
+            throw error;
+        }
+        return data.settings;
+    },
+
+    /**
+     * Create user settings
+     */
+    async createSettings(userId: string, settings: any) {
+        const { data, error } = await supabase
+            .from('user_settings')
+            .insert({ user_id: userId, settings })
+            .select('settings')
+            .single();
+
+        if (error) throw error;
+        return data.settings;
+    },
+
+    /**
+     * Update user settings
+     */
+    async updateSettings(userId: string, settings: any) {
+        const { data, error } = await supabase
+            .from('user_settings')
+            .update({ settings })
+            .eq('user_id', userId)
+            .select('settings')
+            .single();
+
+        if (error) throw error;
+        return data.settings;
+    }
+};
+
+// Realtime subscriptions helper
+export const realtime = {
+    /**
+     * Subscribe to installments changes
+     */
+    subscribeToInstallments(userId: string, callback: (payload: any) => void) {
+        return supabase
+            .channel('installments-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'installments',
+                    filter: `carne_id=in.(select id from carnes where user_id=${userId})`
+                },
+                callback
+            )
+            .subscribe();
+    }
+};
+
+export default supabase;

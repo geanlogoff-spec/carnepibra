@@ -1,0 +1,5 @@
+{
+  "name": "CarnêPIB.RA - Sistema de Cobrança Inteligente",
+  "description": "Um sistema completo para geração de carnês de pagamento com QR Code Pix integrado, visualização de parcelas e suporte a impressão profissional.",
+  "requestFramePermissions": []
+}
