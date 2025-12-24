@@ -121,13 +121,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
       <div className="relative z-10 w-full max-w-md px-6 animate-in fade-in zoom-in duration-1000">
         {/* Logo Superior */}
-        <div className="text-center mb-10 flex flex-col items-center">
-          <img
-            src="/logo.png"
-            alt="PIB - Primeira Igreja Batista"
-            className="w-48 h-auto mb-6 hover:scale-105 transition-transform duration-500 drop-shadow-2xl"
-          />
-          <p className="text-slate-400 mt-2 font-medium tracking-tight">Gestão de Dízimos e Ofertas</p>
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-[28px] shadow-2xl shadow-indigo-500/40 mb-6 rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer border border-white/20">
+            <span className="text-3xl font-black text-white italic">C</span>
+          </div>
+          <h1 className="text-4xl font-black text-white tracking-tighter italic">
+            CarnêPIB<span className="text-indigo-500">.RA</span>
+          </h1>
+          <p className="text-slate-400 mt-2 font-medium tracking-tight">Gestão de Pagamentos Inteligente</p>
         </div>
 
         {/* Card de Login (Glassmorphism) */}

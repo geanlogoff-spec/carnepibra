@@ -51,7 +51,7 @@ export const CarneTicket: React.FC<CarneTicketProps> = ({ installment, customer,
         <div className="ticket-body flex-1 p-4 print:p-2 relative flex flex-col justify-between bg-white">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo" className="w-[12mm] h-auto object-contain" />
+              <div className="w-7 h-7 bg-slate-900 rounded-lg flex items-center justify-center font-black text-white text-[9px] shadow-lg italic print:shadow-none">CP</div>
               <div>
                 <p className="text-[9px] font-black text-slate-900 leading-tight uppercase tracking-tight">{merchant.name}</p>
                 <p className="text-[7px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">CHAVE PIX: {merchant.pixKey}</p>
