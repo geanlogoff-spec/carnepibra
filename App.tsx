@@ -461,6 +461,8 @@ const App: React.FC = () => {
           <MembersTab
             members={members}
             onAddMember={handleAddMember}
+            onUpdateMember={handleUpdateMember}
+            onDeleteMember={handleDeleteMember}
             isLoading={isLoading}
           />
         )}
