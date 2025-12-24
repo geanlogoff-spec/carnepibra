@@ -40,3 +40,5 @@ export interface CarneFormData {
   installmentsCount: number;
   firstDueDate: string;
 }
+
+export type UserRole = 'admin' | 'manager' | 'viewer';

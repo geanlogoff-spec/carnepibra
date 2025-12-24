@@ -7,7 +7,7 @@ import { CarneManagement } from './components/CarneManagement';
 import { FinancialReports } from './components/FinancialReports';
 import { LoginPage } from './components/LoginPage';
 import { MembersTab } from './components/MembersTab';
-import { Carne, CarneFormData, Installment, MerchantSettings, Customer } from './types';
+import { Carne, CarneFormData, Installment, MerchantSettings, Customer, UserRole } from './types';
 import { generatePixPayload } from './services/geminiService';
 import { SecureStorage, validateAmount, validateDocument, sanitizeHTML } from './utils/security';
 
@@ -54,13 +54,21 @@ const App: React.FC = () => {
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>('viewer'); // Novo state
   const [carnes, setCarnes] = useState<Carne[]>([]);
-  const [members, setMembers] = useState<Customer[]>([]); // Novo estado para membros
+  const [members, setMembers] = useState<Customer[]>([]);
   const [activeCarne, setActiveCarne] = useState<Carne | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  // Adicionar 'members' e mudar ordem se desejar que seja o padrão, mas 'members' será a primeira aba visualmente
-  const [activeTab, setActiveTab] = useState<'members' | 'dashboard' | 'management' | 'reports' | 'settings'>('members'); // Alterado padrão para members
+  const [activeTab, setActiveTab] = useState<'members' | 'dashboard' | 'management' | 'reports' | 'settings'>('members');
   const [merchantSettings, setMerchantSettings] = useState<MerchantSettings>(DEFAULT_SETTINGS);
+
+  const determineRole = (email: string | undefined): UserRole => {
+    if (!email) return 'viewer';
+    if (email === 'admin@gean.com') return 'admin';
+    if (email === 'pagamentos@pibra.com') return 'manager';
+    if (email === 'pastores@pibra.com') return 'viewer';
+    return 'viewer'; // Default fallback
+  };
 
   // Inicialização e verificação de sessão
   useEffect(() => {
@@ -70,6 +78,17 @@ const App: React.FC = () => {
         if (session) {
           setIsAuthenticated(true);
           setUserId(session.user.id);
+
+          const role = determineRole(session.user.email);
+          setUserRole(role);
+
+          // Set initial tab based on role
+          if (role === 'viewer') {
+            setActiveTab('reports');
+          } else {
+            setActiveTab('members');
+          }
+
           await loadUserData(session.user.id);
         }
       } catch (error) {
@@ -86,7 +105,7 @@ const App: React.FC = () => {
       const [fetchedCarnes, fetchedSettings, fetchedCustomers] = await Promise.all([
         db.getCarnes(uid),
         db.getSettings(uid),
-        db.getCustomers(uid) // Carregar clientes/membros
+        db.getCustomers(uid)
       ]);
 
       if (fetchedCarnes) setCarnes(fetchedCarnes as unknown as Carne[]);
@@ -116,6 +135,16 @@ const App: React.FC = () => {
     if (user) {
       setIsAuthenticated(true);
       setUserId(user.id);
+
+      const role = determineRole(user.email);
+      setUserRole(role);
+
+      if (role === 'viewer') {
+        setActiveTab('reports');
+      } else {
+        setActiveTab('members');
+      }
+
       loadUserData(user.id);
     }
   };
@@ -443,6 +472,7 @@ const App: React.FC = () => {
       setActiveTab={(tab: any) => setActiveTab(tab)}
       merchantName={merchantSettings.name}
       onLogout={handleLogout}
+      userRole={userRole}
     >
       <div className="max-w-6xl mx-auto">
         {isLoading && (
@@ -457,7 +487,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'members' && (
+        {activeTab === 'members' && ['admin', 'manager'].includes(userRole) && (
           <MembersTab
             members={members}
             onAddMember={handleAddMember}
@@ -467,7 +497,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'settings' && (
+        {activeTab === 'settings' && userRole === 'admin' && (
           <div className="space-y-10">
             <header>
               <h2 className="text-4xl font-black text-slate-900 tracking-tight">Configurações de Perfil</h2>
@@ -477,7 +507,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'reports' && (
+        {activeTab === 'reports' && ['admin', 'viewer'].includes(userRole) && (
           <div className="space-y-10">
             <header>
               <h2 className="text-4xl font-black text-slate-900 tracking-tight">Relatórios Financeiros</h2>
@@ -487,7 +517,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'management' && (
+        {activeTab === 'management' && ['admin', 'manager'].includes(userRole) && (
           <div className="space-y-10">
             <header>
               <h2 className="text-4xl font-black text-slate-900 tracking-tight">Gerenciamento de Cobranças</h2>
@@ -505,7 +535,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'dashboard' && !activeCarne && (
+        {activeTab === 'dashboard' && !activeCarne && ['admin', 'manager'].includes(userRole) && (
           <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-700">
             <header>
               <h2 className="text-5xl font-black text-slate-900 tracking-tighter italic">Novo Carnê<span className="text-indigo-600">.</span></h2>
@@ -520,7 +550,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'dashboard' && activeCarne && (
+        {activeTab === 'dashboard' && activeCarne && ['admin', 'manager'].includes(userRole) && (
           <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700">
             <div className="no-print flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-10 bg-slate-900 p-10 rounded-[40px] text-white shadow-3xl">
               <div>

@@ -172,11 +172,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         {/* Rodapé do Login */}
         <div className="mt-10 text-center space-y-4">
           <p className="text-slate-500 text-[11px] font-medium tracking-tight">
-            {isSignUp ? (
-              <>Já tem uma conta? <button type="button" onClick={() => setIsSignUp(false)} className="text-indigo-400 font-bold hover:underline">Fazer Login</button></>
-            ) : (
-              <>Não tem uma conta? <button type="button" onClick={() => setIsSignUp(true)} className="text-indigo-400 font-bold hover:underline">Solicite seu acesso</button></>
-            )}
+            Acesso restrito a usuários autorizados.
           </p>
           <div className="flex items-center justify-center gap-4 text-[9px] font-black text-slate-600 uppercase tracking-widest">
             <span>Privacidade</span>
