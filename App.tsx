@@ -167,6 +167,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateMember = async (memberId: string, updates: Partial<Customer>) => {
+    setIsLoading(true);
+    try {
+      await db.updateCustomer(memberId, {
+        name: updates.name,
+        document: updates.document,
+        phone: updates.phone,
+        email: updates.email
+      });
+
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, ...updates } : m));
+      alert('Membro atualizado com sucesso!');
+    } catch (error) {
+      console.error("Erro ao atualizar membro:", error);
+      alert("Erro ao atualizar membro.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este membro? Isso não apagará os carnês já gerados.")) return;
+    setIsLoading(true);
+    try {
+      await db.deleteCustomer(memberId);
+      setMembers(prev => prev.filter(m => m.id !== memberId));
+      alert('Membro excluído com sucesso!');
+    } catch (error) {
+      console.error("Erro ao excluir membro:", error);
+      alert("Erro ao excluir membro. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateCarne = async (data: CarneFormData) => {
     // Validação de entrada
     if (!data.customerName.trim() || data.customerName.length < 3) {

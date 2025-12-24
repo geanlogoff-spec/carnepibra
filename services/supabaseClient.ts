@@ -194,6 +194,35 @@ export const db = {
     },
 
     /**
+     * Update a customer
+     */
+    async updateCustomer(customerId: string, updates: Partial<Database['public']['Tables']['customers']['Update']>) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
+        const { data, error } = await supabase
+            .from('customers')
+            .update(updates)
+            .eq('id', customerId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Delete a customer
+     */
+    async deleteCustomer(customerId: string) {
+        if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
+        const { error } = await supabase
+            .from('customers')
+            .delete()
+            .eq('id', customerId);
+
+        if (error) throw error;
+    },
+
+    /**
      * Get all carnes for a user
      */
     async getCarnes(userId: string) {
