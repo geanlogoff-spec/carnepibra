@@ -344,7 +344,8 @@ export const db = {
         const { data, error } = await supabase
             .from('user_settings')
             .select('settings')
-            .eq('user_id', userId)
+            // .eq('user_id', userId) // Shared settings
+            .limit(1)
             .single();
 
         if (error) {
