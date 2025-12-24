@@ -171,7 +171,7 @@ export const db = {
         const { data, error } = await supabase
             .from('customers')
             .select('*')
-            .eq('user_id', userId)
+            // .eq('user_id', userId) // Shared access
             .order('name');
 
         if (error) throw error;
@@ -234,7 +234,7 @@ export const db = {
         customer:customers(*),
         installments(*)
       `)
-            .eq('user_id', userId)
+            // .eq('user_id', userId) // Shared access
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -400,8 +400,8 @@ export const realtime = {
                 {
                     event: '*',
                     schema: 'public',
-                    table: 'installments',
-                    filter: `carne_id=in.(select id from carnes where user_id=${userId})`
+                    table: 'installments'
+                    // removed filter to allow shared updates
                 },
                 callback
             )
