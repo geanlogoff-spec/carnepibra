@@ -203,7 +203,14 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
                                         </svg>
                                     </button>
                                     <button
-                                        onClick={() => member.id && onDeleteMember(member.id)}
+                                        onClick={() => {
+                                            if (member.id) {
+                                                onDeleteMember(member.id);
+                                            } else {
+                                                alert("Erro: Não foi possível identificar o membro para exclusão. Tente recarregar a página.");
+                                                console.error("Tentativa de excluir membro sem ID:", member);
+                                            }
+                                        }}
                                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                                         title="Excluir"
                                     >
