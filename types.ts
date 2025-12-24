@@ -10,9 +10,11 @@ export interface Installment {
 }
 
 export interface Customer {
+  id?: string; // Opcional pois na criação ainda não tem
   name: string;
-  document: string;
+  document?: string; // CPF pode ser opcional em contexto de igreja as vezes
   email?: string;
+  phone?: string;
 }
 
 export interface MerchantSettings {

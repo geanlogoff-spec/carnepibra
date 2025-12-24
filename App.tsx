@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { CarneForm } from './components/CarneForm';
@@ -7,7 +6,8 @@ import { SettingsForm } from './components/SettingsForm';
 import { CarneManagement } from './components/CarneManagement';
 import { FinancialReports } from './components/FinancialReports';
 import { LoginPage } from './components/LoginPage';
-import { Carne, CarneFormData, Installment, MerchantSettings } from './types';
+import { MembersTab } from './components/MembersTab';
+import { Carne, CarneFormData, Installment, MerchantSettings, Customer } from './types';
 import { generatePixPayload } from './services/geminiService';
 import { SecureStorage, validateAmount, validateDocument, sanitizeHTML } from './utils/security';
 
@@ -55,9 +55,11 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [carnes, setCarnes] = useState<Carne[]>([]);
+  const [members, setMembers] = useState<Customer[]>([]); // Novo estado para membros
   const [activeCarne, setActiveCarne] = useState<Carne | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'management' | 'reports' | 'settings'>('dashboard');
+  // Adicionar 'members' e mudar ordem se desejar que seja o padrão, mas 'members' será a primeira aba visualmente
+  const [activeTab, setActiveTab] = useState<'members' | 'dashboard' | 'management' | 'reports' | 'settings'>('members'); // Alterado padrão para members
   const [merchantSettings, setMerchantSettings] = useState<MerchantSettings>(DEFAULT_SETTINGS);
 
   // Inicialização e verificação de sessão
@@ -81,12 +83,23 @@ const App: React.FC = () => {
   const loadUserData = async (uid: string) => {
     try {
       setIsLoading(true);
-      const [fetchedCarnes, fetchedSettings] = await Promise.all([
+      const [fetchedCarnes, fetchedSettings, fetchedCustomers] = await Promise.all([
         db.getCarnes(uid),
-        db.getSettings(uid)
+        db.getSettings(uid),
+        db.getCustomers(uid) // Carregar clientes/membros
       ]);
 
-      if (fetchedCarnes) setCarnes(fetchedCarnes as unknown as Carne[]); // Type assertion provisório
+      if (fetchedCarnes) setCarnes(fetchedCarnes as unknown as Carne[]);
+
+      if (fetchedCustomers) {
+        setMembers(fetchedCustomers.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          document: c.document,
+          email: c.email,
+          phone: c.phone
+        })));
+      }
 
       if (fetchedSettings && Object.keys(fetchedSettings as object).length > 0) {
         setMerchantSettings(fetchedSettings as MerchantSettings);
@@ -122,6 +135,35 @@ const App: React.FC = () => {
     setMerchantSettings(newSettings);
     if (userId) {
       await db.updateSettings(userId, newSettings);
+    }
+  };
+
+  const handleAddMember = async (member: Customer) => {
+    if (!userId) return;
+    setIsLoading(true);
+    try {
+      const newCustomer = await db.createCustomer({
+        user_id: userId,
+        name: sanitizeHTML(member.name),
+        document: member.document,
+        email: member.email,
+        phone: member.phone
+      });
+
+      setMembers(prev => [...prev, {
+        id: newCustomer.id,
+        name: newCustomer.name,
+        document: newCustomer.document,
+        email: newCustomer.email,
+        phone: newCustomer.phone
+      }]);
+
+      alert('Membro cadastrado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao cadastrar membro:', error);
+      alert('Erro ao cadastrar membro. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -197,21 +239,40 @@ const App: React.FC = () => {
       };
 
       try {
-        // 1. Criar ou buscar cliente
-        // Simplificação: criando novo cliente para cada carne por enquanto
-        // Idealmente, buscaria cliente existente pelo documento
-        const customerData = {
-          user_id: userId!,
-          name: sanitizeHTML(data.customerName.trim()),
-          document: data.customerDocument,
-          email: '',
-          phone: '',
-          address: ''
-        };
+        // Tenta encontrar membro existente pelo nome para evitar duplicação
+        const existingMember = members.find(m => m.name === data.customerName);
+        let customerId = existingMember?.id;
+        let customerName = data.customerName;
+        let customerDocument = data.customerDocument;
 
-        const newCustomer = await db.createCustomer(customerData) as any;
-        if (!newCustomer) throw new Error("Falha ao criar cliente");
-        carneForDb.customer_id = newCustomer.id;
+        if (!customerId) {
+          // 1. Criar cliente se não existir
+          const customerData = {
+            user_id: userId!,
+            name: sanitizeHTML(data.customerName.trim()),
+            document: data.customerDocument,
+            email: '',
+            phone: '',
+            address: ''
+          };
+
+          const newCustomer = await db.createCustomer(customerData) as any;
+          if (!newCustomer) throw new Error("Falha ao criar cliente");
+          customerId = newCustomer.id;
+          customerName = newCustomer.name;
+          customerDocument = newCustomer.document;
+
+          // Atualizar lista de membros localmente
+          setMembers(prev => [...prev, {
+            id: newCustomer.id,
+            name: newCustomer.name,
+            document: newCustomer.document,
+            email: newCustomer.email,
+            phone: newCustomer.phone
+          }]);
+        }
+
+        carneForDb.customer_id = customerId;
 
         // 2. Preparar parcelas para DB
         const installmentsForDb = installments.map(inst => ({
@@ -234,8 +295,8 @@ const App: React.FC = () => {
         const newCarne: Carne = {
           id: result.carne.id,
           customer: {
-            name: newCustomer.name,
-            document: newCustomer.document || undefined,
+            name: customerName,
+            document: customerDocument || undefined,
           },
           title: result.carne.title,
           totalAmount: result.carne.total_amount,
@@ -344,7 +405,7 @@ const App: React.FC = () => {
   return (
     <Layout
       activeTab={activeTab}
-      setActiveTab={(tab) => setActiveTab(tab)}
+      setActiveTab={(tab: any) => setActiveTab(tab)}
       merchantName={merchantSettings.name}
       onLogout={handleLogout}
     >
@@ -356,9 +417,17 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 border-[6px] border-indigo-100 rounded-full"></div>
                 <div className="absolute inset-0 border-[6px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <h3 className="text-2xl font-black text-slate-900">Gerando Carnê</h3>
+              <h3 className="text-2xl font-black text-slate-900">Processando...</h3>
             </div>
           </div>
+        )}
+
+        {activeTab === 'members' && (
+          <MembersTab
+            members={members}
+            onAddMember={handleAddMember}
+            isLoading={isLoading}
+          />
         )}
 
         {activeTab === 'settings' && (
@@ -408,7 +477,7 @@ const App: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-12">
-                <CarneForm onSubmit={handleCreateCarne} />
+                <CarneForm onSubmit={handleCreateCarne} members={members} />
               </div>
             </div>
           </div>
