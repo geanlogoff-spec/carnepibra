@@ -20,18 +20,6 @@ const DEFAULT_SETTINGS: MerchantSettings = {
     city: "SAO PAULO"
 };
 
-const ROLES = {
-    ADMIN: 'admin@gean.com',
-    MANAGER: 'pagamentos@pibra.com',
-    VIEWER: 'pastores@pibra.com'
-};
-
-const getUserRole = (email: string | null): 'admin' | 'manager' | 'viewer' => {
-    if (email === ROLES.ADMIN) return 'admin';
-    if (email === ROLES.VIEWER) return 'viewer';
-    return 'manager';
-};
-
 const App: React.FC = () => {
     // Verificação de segurança: Se o Supabase não estiver configurado, 
     // mostre uma mensagem clara em vez de tentar carregar e falhar.
@@ -66,22 +54,12 @@ const App: React.FC = () => {
 
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [userId, setUserId] = useState<string | null>(null);
-    const [userEmail, setUserEmail] = useState<string | null>(null);
     const [carnes, setCarnes] = useState<Carne[]>([]);
     const [members, setMembers] = useState<Customer[]>([]);
     const [activeCarne, setActiveCarne] = useState<Carne | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'members' | 'dashboard' | 'management' | 'reports' | 'settings' | 'users'>('members');
+    const [activeTab, setActiveTab] = useState<'members' | 'dashboard' | 'management' | 'reports' | 'settings'>('members');
     const [merchantSettings, setMerchantSettings] = useState<MerchantSettings>(DEFAULT_SETTINGS);
-
-    const userRole = getUserRole(userEmail);
-
-    // Efeito para redirecionar Viewers para Relatórios
-    useEffect(() => {
-        if (userRole === 'viewer' && activeTab !== 'reports') {
-            setActiveTab('reports');
-        }
-    }, [userRole]);
 
     // Inicialização e verificação de sessão
     useEffect(() => {
@@ -91,8 +69,7 @@ const App: React.FC = () => {
                 if (session) {
                     setIsAuthenticated(true);
                     setUserId(session.user.id);
-                    setUserEmail(session.user.email || null);
-                    await loadUserData(session.user.id, session.user.email || undefined);
+                    await loadUserData(session.user.id);
                 }
             } catch (error) {
                 console.error('Erro ao verificar sessão', error);
@@ -102,31 +79,14 @@ const App: React.FC = () => {
     }, []);
 
     // Carregar dados usuário
-    const loadUserData = async (uid: string, email?: string) => {
+    const loadUserData = async (uid: string) => {
         try {
             setIsLoading(true);
-
-            let carnesData, settingsData, customersData;
-
-            if (email === ROLES.ADMIN) {
-                // Admin carrega TUDO (sujeito a RLS)
-                [carnesData, settingsData, customersData] = await Promise.all([
-                    db.getAllCarnesAdmin(),
-                    db.getSettings(uid), // Config ainda por usuário para personalizar o nome do Admin
-                    db.getAllCustomersAdmin()
-                ]);
-            } else {
-                // Usuários normais
-                [carnesData, settingsData, customersData] = await Promise.all([
-                    db.getCarnes(uid),
-                    db.getSettings(uid),
-                    db.getCustomers(uid)
-                ]);
-            }
-
-            const fetchedCarnes = carnesData;
-            const fetchedSettings = settingsData;
-            const fetchedCustomers = customersData;
+            const [fetchedCarnes, fetchedSettings, fetchedCustomers] = await Promise.all([
+                db.getCarnes(uid),
+                db.getSettings(uid),
+                db.getCustomers(uid)
+            ]);
 
             if (fetchedCarnes) setCarnes(fetchedCarnes as unknown as Carne[]);
 
@@ -482,7 +442,6 @@ const App: React.FC = () => {
             setActiveTab={(tab: any) => setActiveTab(tab)}
             merchantName={merchantSettings.name}
             onLogout={handleLogout}
-            userRole={userRole}
         >
             <div className="max-w-6xl mx-auto">
                 {isLoading && (
