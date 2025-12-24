@@ -1,3 +1,4 @@
+
 /**
  * Supabase Client Configuration
  * 
@@ -171,7 +172,7 @@ export const db = {
         const { data, error } = await supabase
             .from('customers')
             .select('*')
-            // .eq('user_id', userId) // Shared access
+            .eq('user_id', userId)
             .order('name');
 
         if (error) throw error;
@@ -234,8 +235,36 @@ export const db = {
         customer:customers(*),
         installments(*)
       `)
-            // .eq('user_id', userId) // Shared access
+            .eq('user_id', userId)
             .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // ADMIN: Buscar TODOS os carnês da plataforma
+    async getAllCarnesAdmin() {
+        if (!isSupabaseConfigured) return [];
+        const { data, error } = await supabase
+            .from('carnes')
+            .select(`
+        *,
+        customer:customers(*),
+        installments(*)
+      `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // ADMIN: Buscar TODOS os clientes
+    async getAllCustomersAdmin() {
+        if (!isSupabaseConfigured) return [];
+        const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .order('name');
 
         if (error) throw error;
         return data;
@@ -344,8 +373,7 @@ export const db = {
         const { data, error } = await supabase
             .from('user_settings')
             .select('settings')
-            // .eq('user_id', userId) // Shared settings
-            .limit(1)
+            .eq('user_id', userId)
             .single();
 
         if (error) {
@@ -401,8 +429,8 @@ export const realtime = {
                 {
                     event: '*',
                     schema: 'public',
-                    table: 'installments'
-                    // removed filter to allow shared updates
+                    table: 'installments',
+                    filter: `carne_id=in.(select id from carnes where user_id=${userId})`
                 },
                 callback
             )

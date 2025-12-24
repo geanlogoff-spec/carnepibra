@@ -114,9 +114,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Sua Senha</label>
-                {!isSignUp && (
-                  <button type="button" className="text-[9px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-wider transition-colors">Esqueci a senha</button>
-                )}
+                <button type="button" className="text-[9px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-wider transition-colors">Esqueci a senha</button>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-500">
@@ -159,7 +157,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span className="text-sm uppercase tracking-[0.15em]">{isSignUp ? 'Criar Conta' : 'Entrar no Painel'}</span>
+                  <span className="text-sm uppercase tracking-[0.15em]">Entrar no Painel</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -171,9 +169,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
         {/* Rodapé do Login */}
         <div className="mt-10 text-center space-y-4">
-          <p className="text-slate-500 text-[11px] font-medium tracking-tight">
-            Acesso restrito a usuários autorizados.
-          </p>
+
           <div className="flex items-center justify-center gap-4 text-[9px] font-black text-slate-600 uppercase tracking-widest">
             <span>Privacidade</span>
             <div className="w-1 h-1 bg-slate-800 rounded-full"></div>
