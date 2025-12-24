@@ -22,7 +22,11 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
     });
 
     const handleEdit = (member: Customer) => {
-        if (!member.id) return;
+        if (!member.id) {
+            alert("Erro: Este membro não possui um ID válido no sistema. Tente recarregar a página.");
+            console.error("Membro sem ID ao tentar editar:", member);
+            return;
+        }
         setFormData({
             name: member.name,
             document: member.document || '',
@@ -33,6 +37,10 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
         setShowForm(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    // ... (restante do código até o map)
+
+
 
     const handleCancelForm = () => {
         setShowForm(false);
@@ -178,8 +186,8 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
                     </div>
                 ) : (
                     members.map((member) => (
-                        <div key={member.id || Math.random()} className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                            <div className="flex items-start justify-between relative z-10">
+                        <div key={member.id || Math.random()} className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                            <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-lg group-hover:scale-110 transition-transform">
                                         {member.name.charAt(0)}
@@ -191,11 +199,14 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
                                 </div>
                             </div>
 
-                            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center relative z-10">
+                            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => handleEdit(member)}
-                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(member);
+                                        }}
+                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer relative z-20"
                                         title="Editar"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -203,15 +214,15 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onAddMember, on
                                         </svg>
                                     </button>
                                     <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             if (member.id) {
                                                 onDeleteMember(member.id);
                                             } else {
                                                 alert("Erro: Não foi possível identificar o membro para exclusão. Tente recarregar a página.");
-                                                console.error("Tentativa de excluir membro sem ID:", member);
                                             }
                                         }}
-                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer relative z-20"
                                         title="Excluir"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
