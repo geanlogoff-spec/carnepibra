@@ -214,7 +214,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER log_installment_status_change
     AFTER UPDATE ON public.installments
