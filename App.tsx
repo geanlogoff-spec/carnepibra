@@ -262,28 +262,68 @@ const App: React.FC = () => {
     }, 1200);
   };
 
-  const toggleInstallmentStatus = (carneId: string, installmentId: string) => {
-    setCarnes(prevCarnes => prevCarnes.map(carne => {
-      if (carne.id !== carneId) return carne;
-      return {
-        ...carne,
-        installments: carne.installments.map(inst => {
-          if (inst.id !== installmentId) return inst;
-          const isMarkingAsPaid = inst.status !== 'paid';
-          return {
-            ...inst,
-            status: isMarkingAsPaid ? 'paid' : 'pending',
-            paymentDate: isMarkingAsPaid ? new Date().toISOString() : undefined
-          };
-        })
-      };
-    }));
+  const toggleInstallmentStatus = async (carneId: string, installmentId: string) => {
+    try {
+      // Primeiro, atualiza o estado local otimisticamente
+      setCarnes(prevCarnes => prevCarnes.map(carne => {
+        if (carne.id !== carneId) return carne;
+        return {
+          ...carne,
+          installments: carne.installments.map(inst => {
+            if (inst.id !== installmentId) return inst;
+            const isMarkingAsPaid = inst.status !== 'paid';
+            return {
+              ...inst,
+              status: isMarkingAsPaid ? 'paid' : 'pending',
+              paymentDate: isMarkingAsPaid ? new Date().toISOString() : undefined
+            };
+          })
+        };
+      }));
+
+      // Encontra a parcela atual para determinar o novo status
+      const carne = carnes.find(c => c.id === carneId);
+      const installment = carne?.installments.find(i => i.id === installmentId);
+
+      if (!installment) {
+        console.error('Parcela não encontrada');
+        return;
+      }
+
+      const isMarkingAsPaid = installment.status !== 'paid';
+      const newStatus = isMarkingAsPaid ? 'paid' : 'pending';
+      const paymentDate = isMarkingAsPaid ? new Date().toISOString() : undefined;
+
+      // Agora persiste a mudança no Supabase
+      await db.updateInstallmentStatus(installmentId, newStatus, paymentDate);
+
+      console.log(`✅ Status da parcela ${installmentId} atualizado para "${newStatus}" no banco de dados`);
+    } catch (error) {
+      console.error('Erro ao atualizar status da parcela:', error);
+      alert('Erro ao atualizar o status da parcela. Tente novamente.');
+
+      // Reverte a mudança otimista em caso de erro
+      if (userId) {
+        await loadUserData(userId);
+      }
+    }
   };
 
-  const deleteCarne = (id: string) => {
+  const deleteCarne = async (id: string) => {
     if (confirm("Deseja realmente excluir este carnê?")) {
-      setCarnes(prev => prev.filter(c => c.id !== id));
-      if (activeCarne?.id === id) setActiveCarne(null);
+      try {
+        // Remove do banco de dados Supabase
+        await db.deleteCarne(id);
+
+        // Remove do estado local após confirmação do banco
+        setCarnes(prev => prev.filter(c => c.id !== id));
+        if (activeCarne?.id === id) setActiveCarne(null);
+
+        console.log(`✅ Carnê ${id} excluído com sucesso do banco de dados`);
+      } catch (error) {
+        console.error('Erro ao excluir carnê:', error);
+        alert('Erro ao excluir o carnê. Por favor, tente novamente.');
+      }
     }
   };
 
