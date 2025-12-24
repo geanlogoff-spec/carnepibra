@@ -15,6 +15,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false); // Alternar entre login e cadastro
+  const [activeInfoModal, setActiveInfoModal] = useState<'privacy' | 'terms' | 'support' | null>(null);
+
+  const modalContent = {
+    privacy: {
+      title: "Política de Privacidade",
+      content: (
+        <div className="space-y-4">
+          <p>Sua privacidade é nossa prioridade. Esta política descreve como tratamos seus dados:</p>
+          <ul className="list-disc pl-4 space-y-2">
+            <li><strong>Coleta de Dados:</strong> Coletamos apenas as informações estritamente necessárias para a operação do sistema (email para autenticação e dados de configuração da empresa).</li>
+            <li><strong>Uso das Informações:</strong> Seus dados são usados exclusivamente para fornecer o serviço de gestão de carnês e não são compartilhados com terceiros para fins publicitários.</li>
+            <li><strong>Segurança:</strong> Utilizamos criptografia de ponta a ponta e práticas de segurança modernas para proteger seus dados.</li>
+            <li><strong>Cookies:</strong> Utilizamos cookies apenas para manter sua sessão segura e ativa.</li>
+          </ul>
+        </div>
+      )
+    },
+    terms: {
+      title: "Termos de Uso",
+      content: (
+        <div className="space-y-4">
+          <p>Ao utilizar o CarnêPIB.RA, você concorda com os seguintes termos:</p>
+          <ol className="list-decimal pl-4 space-y-2">
+            <li><strong>Finalidade:</strong> O sistema deve ser utilizado exclusivamente para fins lícitos de gestão financeira e emissão de cobranças.</li>
+            <li><strong>Responsabilidade:</strong> O usuário é inteiramente responsável pela veracidade das informações inseridas (valores, dados de clientes, chave PIX).</li>
+            <li><strong>Disponibilidade:</strong> Embora nos esforcemos para manter o sistema online 99.9% do tempo, interrupções para manutenção podem ocorrer.</li>
+            <li><strong>Pagamentos:</strong> O sistema gera QR Codes PIX baseados nas chaves fornecidas. Não intermediamos pagamentos nem possuímos acesso aos valores transferidos.</li>
+          </ol>
+        </div>
+      )
+    },
+    support: {
+      title: "Central de Suporte",
+      content: (
+        <div className="space-y-4">
+          <p>Precisa de ajuda ou encontrou algum problema? Estamos aqui para ajudar.</p>
+          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+            <p className="text-indigo-400 font-bold mb-1">E-mail de Suporte</p>
+            <p className="text-white select-all">suporte@carnepibra.com</p>
+          </div>
+          <p className="text-sm">Nosso tempo médio de resposta é de 24 horas úteis. Para questões urgentes sobre pagamentos, verifique diretamente com seu banco.</p>
+        </div>
+      )
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,16 +214,57 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
         {/* Rodapé do Login */}
         <div className="mt-10 text-center space-y-4">
-
           <div className="flex items-center justify-center gap-4 text-[9px] font-black text-slate-600 uppercase tracking-widest">
-            <span>Privacidade</span>
+            <button onClick={() => setActiveInfoModal('privacy')} className="hover:text-indigo-400 transition-colors">Privacidade</button>
             <div className="w-1 h-1 bg-slate-800 rounded-full"></div>
-            <span>Termos</span>
+            <button onClick={() => setActiveInfoModal('terms')} className="hover:text-indigo-400 transition-colors">Termos</button>
             <div className="w-1 h-1 bg-slate-800 rounded-full"></div>
-            <span>Suporte</span>
+            <button onClick={() => setActiveInfoModal('support')} className="hover:text-indigo-400 transition-colors">Suporte</button>
           </div>
         </div>
       </div>
+
+      {/* Modal de Informações */}
+      {activeInfoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setActiveInfoModal(null)}
+        >
+          <div
+            className="bg-slate-900 border border-white/10 p-8 rounded-[32px] max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setActiveInfoModal(null)}
+              className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="mb-6">
+              <h3 className="text-2xl font-black text-white italic tracking-tight mb-1">
+                {modalContent[activeInfoModal].title}<span className="text-indigo-500">.</span>
+              </h3>
+              <div className="h-1 w-12 bg-indigo-600 rounded-full"></div>
+            </div>
+
+            <div className="text-slate-300 leading-relaxed text-sm font-medium">
+              {modalContent[activeInfoModal].content}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-white/5 flex justify-end">
+              <button
+                onClick={() => setActiveInfoModal(null)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-colors text-sm"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detalhe Flutuante (Blur Decorativo) */}
       <div className="absolute bottom-20 left-10 w-24 h-24 bg-indigo-500/20 rounded-full blur-2xl animate-bounce"></div>
